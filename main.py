@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Photo & Webcam Effects App")
         self.resize(1200, 750)
 
-        self.cap = None
+        self.cam = None
         self.current_frame = None
         self.processed_frame = None
 
@@ -51,14 +51,14 @@ class MainWindow(QMainWindow):
         self.save_image_button = QPushButton("Export foto")
         self.save_image_button.clicked.connect(self.save_image)
 
-        self.brightness_slider = self.create_slider(-100, 100, 0)
-        self.contrast_slider = self.create_slider(50, 200, 100)
-        self.saturation_slider = self.create_slider(0, 200, 100)
-        self.grain_slider = self.create_slider(0, 50, 0)
-        self.vignette_slider = self.create_slider(0, 100, 0)
-        self.chromatic_slider = self.create_slider(0, 20, 0)
-        self.pixel_slider = self.create_slider(1, 50, 1)
-        self.vintage_slider = self.create_slider(0, 100, 0)
+        self.brightness_slider, self.brightness_value = self.create_slider(-100, 100, 0)
+        self.contrast_slider, self.contrast_value = self.create_slider(50, 200, 100, suffix="%")
+        self.saturation_slider, self.saturation_value = self.create_slider(0, 200, 100, suffix="%")
+        self.grain_slider, self.grain_value = self.create_slider(0, 50, 0)
+        self.vignette_slider, self.vignette_value = self.create_slider(0, 100, 0, suffix="%")
+        self.chromatic_slider, self.chromatic_value = self.create_slider(0, 20, 0)
+        self.pixel_slider, self.pixel_value = self.create_slider(1, 50, 1)
+        self.vintage_slider, self.vintage_value = self.create_slider(0, 100, 0, suffix="%")
 
         controls = self.create_controls()
 
@@ -70,14 +70,33 @@ class MainWindow(QMainWindow):
         container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-    def create_slider(self, minimum, maximum, value):
+    def create_slider(self, minimum, maximum, value, suffix=""):
         slider = QSlider(Qt.Horizontal)
         slider.setMinimum(minimum)
         slider.setMaximum(maximum)
         slider.setValue(value)
-        slider.valueChanged.connect(self.refresh_static_image)
-        return slider
 
+        value_label = QLabel(f"{value}{suffix}")
+        value_label.setFixedWidth(45)
+        value_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        def update_value_label(new_value):
+            value_label.setText(f"{new_value}{suffix}")
+            self.refresh_static_image()
+
+        slider.valueChanged.connect(update_value_label)
+
+        return slider, value_label
+    def create_slider_row(self, slider, value_label):
+        row = QWidget()
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(slider)
+        layout.addWidget(value_label)
+
+        row.setLayout(layout)
+        return row
     def create_controls(self):
         panel = QWidget()
         layout = QVBoxLayout()
@@ -90,14 +109,14 @@ class MainWindow(QMainWindow):
         effects_group = QGroupBox("Efecte")
         form = QFormLayout()
 
-        form.addRow("Brightness", self.brightness_slider)
-        form.addRow("Contrast", self.contrast_slider)
-        form.addRow("Saturation", self.saturation_slider)
-        form.addRow("Film grain", self.grain_slider)
-        form.addRow("Vignette", self.vignette_slider)
-        form.addRow("Chromatic aberration", self.chromatic_slider)
-        form.addRow("Pixelizare", self.pixel_slider)
-        form.addRow("Vintage", self.vintage_slider)
+        form.addRow("Brightness", self.create_slider_row(self.brightness_slider, self.brightness_value))
+        form.addRow("Contrast", self.create_slider_row(self.contrast_slider, self.contrast_value))
+        form.addRow("Saturation", self.create_slider_row(self.saturation_slider, self.saturation_value))
+        form.addRow("Film grain", self.create_slider_row(self.grain_slider, self.grain_value))
+        form.addRow("Vignette", self.create_slider_row(self.vignette_slider, self.vignette_value))
+        form.addRow("Chromatic aberration\n", self.create_slider_row(self.chromatic_slider, self.chromatic_value))
+        form.addRow("Pixelizare", self.create_slider_row(self.pixel_slider, self.pixel_value))
+        form.addRow("Vintage", self.create_slider_row(self.vintage_slider, self.vintage_value))
 
         effects_group.setLayout(form)
 
@@ -112,7 +131,7 @@ class MainWindow(QMainWindow):
         contrast = self.contrast_slider.value() / 100.0
         saturation = self.saturation_slider.value() / 100.0
         grain = self.grain_slider.value()
-        vignette = self.vignette_slider.value() / 100.0
+        vignette = self.vignette_slider.value() / 10.0
         chromatic = self.chromatic_slider.value()
         pixel_size = self.pixel_slider.value()
         vintage = self.vintage_slider.value() / 100.0
@@ -131,11 +150,11 @@ class MainWindow(QMainWindow):
     def start_camera(self):
         self.stop_camera()
 
-        self.cap = cv2.VideoCapture(0)
+        self.cam = cv2.VideoCapture(0)
 
-        if not self.cap.isOpened():
+        if not self.cam.isOpened():
             self.image_label.setText("Nu s-a putut deschide webcam-ul.")
-            self.cap = None
+            self.cam = None
             return
 
         self.timer.start(30)
@@ -143,15 +162,15 @@ class MainWindow(QMainWindow):
     def stop_camera(self):
         self.timer.stop()
 
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
+        if self.cam is not None:
+            self.cam.release()
+            self.cam = None
 
     def update_frame(self):
-        if self.cap is None:
+        if self.cam is None:
             return
 
-        ret, frame = self.cap.read()
+        ret, frame = self.cam.read()
 
         if not ret:
             return
@@ -186,7 +205,7 @@ class MainWindow(QMainWindow):
         self.refresh_static_image()
 
     def refresh_static_image(self):
-        if self.cap is not None:
+        if self.cam is not None:
             return
 
         if self.current_frame is None:

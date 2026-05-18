@@ -89,10 +89,10 @@ def apply_vintage(frame, strength=0.0):
     img[:, :, 1] *= 1.0 + 0.05 * strength # green
     img[:, :, 2] *= 1.0 + 0.25 * strength # red
 
-    # contrast ușor redus
+    # contrast redus
     img = (img - 128) * (1.0 - 0.25 * strength) + 128
 
-    # imagine ușor faded
+    # imagine faded
     img = img + 20 * strength
 
     return np.clip(img, 0, 255).astype(np.uint8)
