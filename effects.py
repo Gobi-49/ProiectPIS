@@ -107,7 +107,9 @@ def apply_effect_pipeline(
     vignette=0.0,
     chromatic=0,
     pixel_size=1,
-    vintage=0.0
+    vintage=0.0,
+    light_leak=0.0,
+    light_leak_position="left"
 ):
     result = frame.copy()
 
@@ -116,7 +118,48 @@ def apply_effect_pipeline(
     result = apply_vintage(result, vintage)
     result = apply_chromatic_aberration(result, chromatic)
     result = apply_pixelation(result, pixel_size)
+    result = apply_light_leak(result, light_leak, light_leak_position)
     result = apply_vignette(result, vignette)
     result = apply_film_grain(result, grain)
 
     return result
+
+def apply_light_leak(frame, intensity=0.0, position="left"):
+    if intensity <= 0:
+        return frame
+
+    h, w = frame.shape[:2]
+
+    # Coordonate normalizate între 0 și 1
+    x = np.linspace(0, 1, w)
+    y = np.linspace(0, 1, h)
+    xv, yv = np.meshgrid(x, y)
+
+    if position == "left":
+        mask = 1.0 - xv
+    elif position == "right":
+        mask = xv
+    elif position == "top":
+        mask = 1.0 - yv
+    elif position == "bottom":
+        mask = yv
+    else:
+        mask = 1.0 - xv
+
+    # Facem tranziția mai concentrată spre margine
+    mask = np.power(mask, 2.5)
+
+    # Culoare light leak în format BGR, pentru OpenCV
+    leak_color = np.zeros_like(frame, dtype=np.float32)
+    leak_color[:, :, 0] = 20    # Blue
+    leak_color[:, :, 1] = 90    # Green
+    leak_color[:, :, 2] = 255   # Red
+
+    mask = mask[..., np.newaxis]
+
+    result = frame.astype(np.float32)
+
+    # Screen/additive blend simplificat
+    result = result + leak_color * mask * intensity
+
+    return np.clip(result, 0, 255).astype(np.uint8)
