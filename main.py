@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
             return
 
         self.status_label.setText("Status: webcam pornit")
-        self.timer.start(30)
+        self.timer.start(int(1000 / self.recording_fps))
 
     def stop_camera(self):
         self.timer.stop()
